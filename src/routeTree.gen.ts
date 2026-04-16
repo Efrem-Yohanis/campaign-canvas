@@ -10,13 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CampaignsCampaignIdRouteImport } from './routes/campaigns_.$campaignId'
 import { Route as CampaignsCreateRouteImport } from './routes/campaigns.create'
-import { Route as CampaignsCampaignIdIndexRouteImport } from './routes/campaigns.$campaignId.index'
-import { Route as CampaignsCampaignIdEditRouteImport } from './routes/campaigns.$campaignId.edit'
+import { Route as CampaignsCampaignIdEditRouteImport } from './routes/campaigns_.$campaignId.edit'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CampaignsCampaignIdRoute = CampaignsCampaignIdRouteImport.update({
+  id: '/campaigns_/$campaignId',
+  path: '/campaigns/$campaignId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CampaignsCreateRoute = CampaignsCreateRouteImport.update({
@@ -24,63 +29,56 @@ const CampaignsCreateRoute = CampaignsCreateRouteImport.update({
   path: '/campaigns/create',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CampaignsCampaignIdIndexRoute =
-  CampaignsCampaignIdIndexRouteImport.update({
-    id: '/campaigns/$campaignId/',
-    path: '/campaigns/$campaignId/',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const CampaignsCampaignIdEditRoute = CampaignsCampaignIdEditRouteImport.update({
-  id: '/campaigns/$campaignId/edit',
-  path: '/campaigns/$campaignId/edit',
-  getParentRoute: () => rootRouteImport,
+  id: '/edit',
+  path: '/edit',
+  getParentRoute: () => CampaignsCampaignIdRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/campaigns/create': typeof CampaignsCreateRoute
+  '/campaigns/$campaignId': typeof CampaignsCampaignIdRouteWithChildren
   '/campaigns/$campaignId/edit': typeof CampaignsCampaignIdEditRoute
-  '/campaigns/$campaignId/': typeof CampaignsCampaignIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/campaigns/create': typeof CampaignsCreateRoute
+  '/campaigns/$campaignId': typeof CampaignsCampaignIdRouteWithChildren
   '/campaigns/$campaignId/edit': typeof CampaignsCampaignIdEditRoute
-  '/campaigns/$campaignId': typeof CampaignsCampaignIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/campaigns/create': typeof CampaignsCreateRoute
-  '/campaigns/$campaignId/edit': typeof CampaignsCampaignIdEditRoute
-  '/campaigns/$campaignId/': typeof CampaignsCampaignIdIndexRoute
+  '/campaigns_/$campaignId': typeof CampaignsCampaignIdRouteWithChildren
+  '/campaigns_/$campaignId/edit': typeof CampaignsCampaignIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/campaigns/create'
+    | '/campaigns/$campaignId'
     | '/campaigns/$campaignId/edit'
-    | '/campaigns/$campaignId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/campaigns/create'
-    | '/campaigns/$campaignId/edit'
     | '/campaigns/$campaignId'
+    | '/campaigns/$campaignId/edit'
   id:
     | '__root__'
     | '/'
     | '/campaigns/create'
-    | '/campaigns/$campaignId/edit'
-    | '/campaigns/$campaignId/'
+    | '/campaigns_/$campaignId'
+    | '/campaigns_/$campaignId/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CampaignsCreateRoute: typeof CampaignsCreateRoute
-  CampaignsCampaignIdEditRoute: typeof CampaignsCampaignIdEditRoute
-  CampaignsCampaignIdIndexRoute: typeof CampaignsCampaignIdIndexRoute
+  CampaignsCampaignIdRoute: typeof CampaignsCampaignIdRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -92,6 +90,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/campaigns_/$campaignId': {
+      id: '/campaigns_/$campaignId'
+      path: '/campaigns/$campaignId'
+      fullPath: '/campaigns/$campaignId'
+      preLoaderRoute: typeof CampaignsCampaignIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/campaigns/create': {
       id: '/campaigns/create'
       path: '/campaigns/create'
@@ -99,29 +104,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CampaignsCreateRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/campaigns/$campaignId/': {
-      id: '/campaigns/$campaignId/'
-      path: '/campaigns/$campaignId'
-      fullPath: '/campaigns/$campaignId/'
-      preLoaderRoute: typeof CampaignsCampaignIdIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/campaigns/$campaignId/edit': {
-      id: '/campaigns/$campaignId/edit'
-      path: '/campaigns/$campaignId/edit'
+    '/campaigns_/$campaignId/edit': {
+      id: '/campaigns_/$campaignId/edit'
+      path: '/edit'
       fullPath: '/campaigns/$campaignId/edit'
       preLoaderRoute: typeof CampaignsCampaignIdEditRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof CampaignsCampaignIdRoute
     }
   }
 }
 
+interface CampaignsCampaignIdRouteChildren {
+  CampaignsCampaignIdEditRoute: typeof CampaignsCampaignIdEditRoute
+}
+
+const CampaignsCampaignIdRouteChildren: CampaignsCampaignIdRouteChildren = {
+  CampaignsCampaignIdEditRoute: CampaignsCampaignIdEditRoute,
+}
+
+const CampaignsCampaignIdRouteWithChildren =
+  CampaignsCampaignIdRoute._addFileChildren(CampaignsCampaignIdRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CampaignsCreateRoute: CampaignsCreateRoute,
-  CampaignsCampaignIdEditRoute: CampaignsCampaignIdEditRoute,
-  CampaignsCampaignIdIndexRoute: CampaignsCampaignIdIndexRoute,
+  CampaignsCampaignIdRoute: CampaignsCampaignIdRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
