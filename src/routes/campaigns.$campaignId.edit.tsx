@@ -5,7 +5,7 @@ import { CampaignForm } from "@/components/CampaignForm";
 import { fetchCampaign, updateCampaign, type Campaign } from "@/lib/campaigns";
 import { Loader2 } from "lucide-react";
 
-export const Route = createFileRoute("/campaigns_/$campaignId/edit")({
+export const Route = createFileRoute("/campaigns/$campaignId/edit")({
   head: () => ({
     meta: [
       { title: "Edit Campaign" },

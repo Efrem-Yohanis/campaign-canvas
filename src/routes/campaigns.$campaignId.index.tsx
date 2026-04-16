@@ -7,7 +7,7 @@ import { ImportDataDialog } from "@/components/ImportDataDialog";
 import { fetchCampaign, getTableRowCount, getTableData, getTableColumns, type Campaign } from "@/lib/campaigns";
 import { Upload, ArrowLeft, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 
-export const Route = createFileRoute("/campaigns_/$campaignId")({
+export const Route = createFileRoute("/campaigns/$campaignId/")({
   head: () => ({
     meta: [
       { title: "Campaign Detail" },
