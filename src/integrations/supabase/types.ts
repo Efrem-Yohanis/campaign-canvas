@@ -14,13 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      campaigns: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          table_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          table_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          table_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_table_columns: {
+        Args: { target_table: string }
+        Returns: {
+          column_name: string
+          data_type: string
+        }[]
+      }
+      get_table_data: {
+        Args: { page_num?: number; page_size?: number; target_table: string }
+        Returns: Json
+      }
+      get_table_row_count: { Args: { target_table: string }; Returns: number }
+      insert_table_data: {
+        Args: { rows: Json; target_table: string }
+        Returns: number
+      }
+      list_public_tables: {
+        Args: never
+        Returns: {
+          table_name: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
