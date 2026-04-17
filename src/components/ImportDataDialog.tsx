@@ -8,17 +8,24 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Upload, FileSpreadsheet, Loader2, CheckCircle2, XCircle } from "lucide-react";
-import { insertTableData, getTableColumns } from "@/lib/campaigns";
+import { insertCampaignMsisdns } from "@/lib/campaigns";
 import * as XLSX from "xlsx";
 
 interface ImportDataDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  tableName: string;
+  campaignId: string;
+  campaignName: string;
   onSuccess: () => void;
 }
 
-export function ImportDataDialog({ open, onOpenChange, tableName, onSuccess }: ImportDataDialogProps) {
+export function ImportDataDialog({
+  open,
+  onOpenChange,
+  campaignId,
+  campaignName,
+  onSuccess,
+}: ImportDataDialogProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -48,28 +55,18 @@ export function ImportDataDialog({ open, onOpenChange, tableName, onSuccess }: I
         return;
       }
 
-      // Get table columns to filter data
-      const columns = await getTableColumns(tableName);
-      const columnNames = new Set(columns.map((c) => c.column_name));
+      const inserted = await insertCampaignMsisdns(campaignId, jsonData);
 
-      // Filter rows to only include valid columns
-      const filteredRows = jsonData.map((row) => {
-        const filtered: Record<string, unknown> = {};
-        for (const [key, value] of Object.entries(row)) {
-          if (columnNames.has(key) && value !== undefined && value !== null && value !== "") {
-            filtered[key] = value;
-          }
-        }
-        return filtered;
-      }).filter((row) => Object.keys(row).length > 0);
-
-      if (filteredRows.length === 0) {
-        setResult({ success: false, message: "No matching columns found between file and table." });
+      if (inserted === 0) {
+        setResult({
+          success: false,
+          message:
+            "No MSISDN values found. Make sure your file has a column named 'msisdn', 'phone', 'phone_number', or 'mobile'.",
+        });
         return;
       }
 
-      const inserted = await insertTableData(tableName, filteredRows);
-      setResult({ success: true, message: `Successfully imported ${inserted} rows.` });
+      setResult({ success: true, message: `Successfully imported ${inserted} MSISDN rows.` });
       setFile(null);
       if (fileRef.current) fileRef.current.value = "";
       onSuccess();
@@ -87,7 +84,10 @@ export function ImportDataDialog({ open, onOpenChange, tableName, onSuccess }: I
         <DialogHeader>
           <DialogTitle>Import Data</DialogTitle>
           <DialogDescription>
-            Upload an Excel (.xlsx) or CSV file to import into <strong>{tableName}</strong>.
+            Upload an Excel (.xlsx) or CSV file with MSISDN numbers for{" "}
+            <strong>{campaignName}</strong>. The file should contain a column named{" "}
+            <code>msisdn</code>, <code>phone</code>, <code>phone_number</code>, or{" "}
+            <code>mobile</code>.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -126,11 +126,7 @@ export function ImportDataDialog({ open, onOpenChange, tableName, onSuccess }: I
           )}
 
           <Button onClick={handleImport} disabled={!file || loading} className="w-full">
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4" />
-            )}
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             {loading ? "Importing…" : "Import"}
           </Button>
         </div>

@@ -14,24 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      campaign_data: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          id: string
+          msisdn: string
+          payload: Json | null
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          id?: string
+          msisdn: string
+          payload?: Json | null
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          msisdn?: string
+          payload?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_data_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaigns: {
         Row: {
           created_at: string
+          created_by: string | null
           id: string
+          last_insert_count: number | null
+          last_inserted_at: string | null
           name: string
           table_name: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           id?: string
+          last_insert_count?: number | null
+          last_inserted_at?: string | null
           name: string
           table_name: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           id?: string
+          last_insert_count?: number | null
+          last_inserted_at?: string | null
           name?: string
           table_name?: string
           updated_at?: string
@@ -43,6 +84,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_campaign_row_count: {
+        Args: { target_campaign: string }
+        Returns: number
+      }
       get_table_columns: {
         Args: { target_table: string }
         Returns: {
@@ -55,6 +100,10 @@ export type Database = {
         Returns: Json
       }
       get_table_row_count: { Args: { target_table: string }; Returns: number }
+      insert_campaign_msisdns: {
+        Args: { rows: Json; target_campaign: string }
+        Returns: number
+      }
       insert_table_data: {
         Args: { rows: Json; target_table: string }
         Returns: number

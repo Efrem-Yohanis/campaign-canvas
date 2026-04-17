@@ -6,6 +6,17 @@ export type Campaign = {
   table_name: string;
   created_at: string;
   updated_at: string;
+  created_by?: string | null;
+  last_insert_count?: number | null;
+  last_inserted_at?: string | null;
+};
+
+export type CampaignDataRow = {
+  id: string;
+  campaign_id: string;
+  msisdn: string;
+  payload: Record<string, unknown> | null;
+  created_at: string;
 };
 
 export async function fetchCampaigns() {
@@ -59,35 +70,48 @@ export async function listPublicTables() {
   return (data as { table_name: string }[]).map((t) => t.table_name);
 }
 
-export async function getTableRowCount(tableName: string) {
-  const { data, error } = await supabase.rpc("get_table_row_count", {
-    target_table: tableName,
-  });
+// Per-campaign data (MSISDN list)
+export async function getCampaignRowCount(campaignId: string) {
+  const { count, error } = await supabase
+    .from("campaign_data")
+    .select("*", { count: "exact", head: true })
+    .eq("campaign_id", campaignId);
   if (error) throw error;
-  return data as number;
+  return count ?? 0;
 }
 
-export async function getTableData(tableName: string, page = 1, pageSize = 20) {
-  const { data, error } = await supabase.rpc("get_table_data", {
-    target_table: tableName,
-    page_num: page,
-    page_size: pageSize,
-  });
+export async function getCampaignData(
+  campaignId: string,
+  page = 1,
+  pageSize = 20,
+  search = ""
+) {
+  let query = supabase
+    .from("campaign_data")
+    .select("*", { count: "exact" })
+    .eq("campaign_id", campaignId)
+    .order("created_at", { ascending: false });
+
+  if (search.trim()) {
+    query = query.ilike("msisdn", `%${search.trim()}%`);
+  }
+
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  const { data, count, error } = await query.range(from, to);
   if (error) throw error;
-  return (data ?? []) as Record<string, unknown>[];
+  return {
+    rows: (data ?? []) as CampaignDataRow[],
+    total: count ?? 0,
+  };
 }
 
-export async function getTableColumns(tableName: string) {
-  const { data, error } = await supabase.rpc("get_table_columns", {
-    target_table: tableName,
-  });
-  if (error) throw error;
-  return data as { column_name: string; data_type: string }[];
-}
-
-export async function insertTableData(tableName: string, rows: Record<string, unknown>[]) {
-  const { data, error } = await supabase.rpc("insert_table_data", {
-    target_table: tableName,
+export async function insertCampaignMsisdns(
+  campaignId: string,
+  rows: Record<string, unknown>[]
+) {
+  const { data, error } = await supabase.rpc("insert_campaign_msisdns", {
+    target_campaign: campaignId,
     rows: rows as unknown as string,
   });
   if (error) throw error;
