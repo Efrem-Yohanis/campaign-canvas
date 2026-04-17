@@ -41,7 +41,7 @@ function EditCampaignPage() {
 
   return (
     <AppLayout>
-      <div className="mx-auto max-w-lg">
+      <div className="mx-auto w-full max-w-2xl">
         <h1 className="mb-6 text-2xl font-bold tracking-tight text-foreground">Edit Campaign</h1>
         <div className="rounded-lg border border-border bg-card p-6">
           <CampaignForm
