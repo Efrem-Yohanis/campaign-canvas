@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DeleteDialog } from "@/components/DeleteDialog";
-import { fetchCampaigns, deleteCampaign, getTableRowCount, type Campaign } from "@/lib/campaigns";
+import { fetchCampaigns, deleteCampaign, getCampaignRowCount, type Campaign } from "@/lib/campaigns";
 import { Eye, Pencil, Trash2, Search, Loader2, Database } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -35,7 +35,7 @@ function CampaignListPage() {
       await Promise.all(
         data.map(async (c) => {
           try {
-            counts[c.id] = await getTableRowCount(c.table_name);
+            counts[c.id] = await getCampaignRowCount(c.id);
           } catch {
             counts[c.id] = 0;
           }

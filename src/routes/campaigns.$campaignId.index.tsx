@@ -2,55 +2,91 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { ImportDataDialog } from "@/components/ImportDataDialog";
-import { fetchCampaign, getTableRowCount, getTableData, getTableColumns, type Campaign } from "@/lib/campaigns";
-import { Upload, ArrowLeft, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  fetchCampaign,
+  getCampaignData,
+  type Campaign,
+  type CampaignDataRow,
+} from "@/lib/campaigns";
+import {
+  Upload,
+  ArrowLeft,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  Phone,
+  User,
+  Clock,
+  Database,
+  ListChecks,
+} from "lucide-react";
 
 export const Route = createFileRoute("/campaigns/$campaignId/")({
   head: () => ({
     meta: [
       { title: "Campaign Detail" },
-      { name: "description", content: "View campaign details and table data" },
+      { name: "description", content: "View campaign details and MSISDN data" },
     ],
   }),
   component: CampaignDetailPage,
 });
 
+function formatDate(value?: string | null) {
+  if (!value) return "—";
+  return new Date(value).toLocaleString();
+}
+
 function CampaignDetailPage() {
   const { campaignId } = Route.useParams();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
-  const [rowCount, setRowCount] = useState<number>(0);
-  const [columns, setColumns] = useState<{ column_name: string; data_type: string }[]>([]);
-  const [tableData, setTableData] = useState<Record<string, unknown>[]>([]);
+  const [rows, setRows] = useState<CampaignDataRow[]>([]);
+  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
   const pageSize = 20;
+
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const c = await fetchCampaign(campaignId);
       setCampaign(c);
-      const [count, cols, data] = await Promise.all([
-        getTableRowCount(c.table_name),
-        getTableColumns(c.table_name),
-        getTableData(c.table_name, page, pageSize),
-      ]);
-      setRowCount(count);
-      setColumns(cols);
-      setTableData(data);
+      const { rows: r, total: t } = await getCampaignData(campaignId, page, pageSize, debouncedSearch);
+      setRows(r);
+      setTotal(t);
     } finally {
       setLoading(false);
     }
-  }, [campaignId, page]);
+  }, [campaignId, page, debouncedSearch]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  const totalPages = Math.max(1, Math.ceil(rowCount / pageSize));
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   if (loading && !campaign) {
     return (
@@ -76,9 +112,7 @@ function CampaignDetailPage() {
           <div className="flex-1">
             <h1 className="text-2xl font-bold tracking-tight text-foreground">{campaign.name}</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Table: <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{campaign.table_name}</code>
-              {" · "}
-              {rowCount.toLocaleString()} rows
+              MSISDN list for this campaign
             </p>
           </div>
           <Button onClick={() => setImportOpen(true)}>
@@ -87,69 +121,103 @@ function CampaignDetailPage() {
           </Button>
         </div>
 
-        {/* Stats cards */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Campaign</p>
-            <p className="mt-1 text-lg font-semibold text-foreground">{campaign.name}</p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Table</p>
-            <p className="mt-1 text-lg font-semibold text-foreground">{campaign.table_name}</p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Rows</p>
-            <p className="mt-1 text-lg font-semibold text-foreground">{rowCount.toLocaleString()}</p>
-          </div>
+        {/* Campaign info card */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <InfoCard icon={<Database className="h-4 w-4" />} label="Campaign Name" value={campaign.name} />
+          <InfoCard icon={<Database className="h-4 w-4" />} label="Table Name" value={campaign.table_name} mono />
+          <InfoCard
+            icon={<ListChecks className="h-4 w-4" />}
+            label="Total Rows"
+            value={total.toLocaleString()}
+          />
+          <InfoCard
+            icon={<User className="h-4 w-4" />}
+            label="Created By"
+            value={campaign.created_by ?? "system"}
+          />
+          <InfoCard
+            icon={<Clock className="h-4 w-4" />}
+            label="Last Update"
+            value={formatDate(campaign.last_inserted_at ?? campaign.updated_at)}
+            sub={
+              campaign.last_insert_count
+                ? `${campaign.last_insert_count.toLocaleString()} rows inserted`
+                : "No imports yet"
+            }
+          />
         </div>
 
-        {/* Table data preview */}
+        {/* Search + table */}
         <div>
-          <h2 className="mb-3 text-base font-semibold text-foreground">Table Preview</h2>
-          {columns.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No columns found.</p>
-          ) : (
-            <div className="overflow-auto rounded-lg border border-border bg-card">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    {columns.map((col) => (
-                      <TableHead key={col.column_name} className="whitespace-nowrap">
-                        {col.column_name}
-                      </TableHead>
-                    ))}
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-foreground">MSISDN List</h2>
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search MSISDN (e.g. +251707035315)…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
+
+          <div className="overflow-auto rounded-lg border border-border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="w-16">#</TableHead>
+                  <TableHead>MSISDN</TableHead>
+                  <TableHead>Imported At</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="py-10 text-center">
+                      <Loader2 className="mx-auto h-5 w-5 animate-spin text-primary" />
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tableData.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={columns.length} className="text-center text-muted-foreground">
-                        No data yet
+                ) : rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="py-10 text-center text-muted-foreground">
+                      {debouncedSearch ? "No MSISDN matches your search." : "No data yet. Import an Excel/CSV file to get started."}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  rows.map((row, i) => (
+                    <TableRow key={row.id}>
+                      <TableCell className="text-muted-foreground tabular-nums">
+                        {(page - 1) * pageSize + i + 1}
+                      </TableCell>
+                      <TableCell className="font-mono">
+                        <span className="inline-flex items-center gap-2">
+                          <Phone className="h-3.5 w-3.5 text-primary" />
+                          {row.msisdn}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDate(row.created_at)}
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    tableData.map((row, i) => (
-                      <TableRow key={i}>
-                        {columns.map((col) => (
-                          <TableCell key={col.column_name} className="max-w-[200px] truncate whitespace-nowrap">
-                            {String(row[col.column_name] ?? "")}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="mt-3 flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Page {page} of {totalPages}
-              </p>
-              <div className="flex gap-1">
+          <div className="mt-3 flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              {total > 0
+                ? `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total.toLocaleString()}`
+                : "0 rows"}
+            </p>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  Page {page} of {totalPages}
+                </span>
                 <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
@@ -157,17 +225,50 @@ function CampaignDetailPage() {
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
       <ImportDataDialog
         open={importOpen}
         onOpenChange={setImportOpen}
-        tableName={campaign.table_name}
+        campaignId={campaign.id}
+        campaignName={campaign.name}
         onSuccess={loadData}
       />
     </AppLayout>
+  );
+}
+
+function InfoCard({
+  icon,
+  label,
+  value,
+  sub,
+  mono,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  sub?: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        {icon}
+        {label}
+      </div>
+      <p
+        className={`mt-1.5 truncate text-base font-semibold text-foreground ${
+          mono ? "font-mono text-sm" : ""
+        }`}
+        title={value}
+      >
+        {value}
+      </p>
+      {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
+    </div>
   );
 }
