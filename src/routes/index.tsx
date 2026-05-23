@@ -1,170 +1,160 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { AppLayout } from "@/components/AppLayout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DeleteDialog } from "@/components/DeleteDialog";
-import { fetchCampaigns, deleteCampaign, getCampaignRowCount, type Campaign } from "@/lib/campaigns";
-import { Eye, Pencil, Trash2, Search, Loader2, Database } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { Search, Loader2, BookOpen, ArrowRight, TextSearch } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Header } from "@/components/Header";
+import { VerseOfTheDay } from "@/components/VerseOfTheDay";
+import { useI18n } from "@/lib/i18n";
+import { bibleService } from "@/services/api";
+import { bookSlug, localizedBookName } from "@/data/bible";
+
+type ApiBook = { id: number; name: string; testament: "Old" | "New"; chapters: number };
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Campaigns — Dashboard" },
-      { name: "description", content: "Manage your data campaigns" },
+      { title: "Bible Quiz — Read & Test Your Knowledge" },
+      { name: "description", content: "Read the Bible and test your knowledge with quizzes in multiple languages." },
     ],
   }),
-  component: CampaignListPage,
+  component: Index,
 });
 
-function CampaignListPage() {
-  const navigate = useNavigate();
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [rowCounts, setRowCounts] = useState<Record<string, number>>({});
-  const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null);
+function Index() {
+  const { t, lang } = useI18n();
+  const [query, setQuery] = useState("");
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const data = await fetchCampaigns();
-      setCampaigns(data);
-      const counts: Record<string, number> = {};
-      await Promise.all(
-        data.map(async (c) => {
-          try {
-            counts[c.id] = await getCampaignRowCount(c.id);
-          } catch {
-            counts[c.id] = 0;
-          }
-        })
-      );
-      setRowCounts(counts);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const booksQ = useQuery({
+    queryKey: ["bible-books-by-language", lang],
+    queryFn: () => bibleService.getBooksByLanguage(lang),
+    staleTime: 1000 * 60 * 10,
+    retry: 1,
+  });
 
-  useEffect(() => {
-    load();
-  }, []);
+  const books: ApiBook[] = booksQ.data?.books ?? [];
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    await deleteCampaign(deleteTarget.id);
-    setDeleteTarget(null);
-    load();
-  };
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return books;
+    return books.filter((b) => {
+      const localized = localizedBookName(b.name, lang).toLowerCase();
+      return b.name.toLowerCase().includes(q) || localized.includes(q);
+    });
+  }, [books, query, lang]);
 
-  const filtered = campaigns.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.table_name.toLowerCase().includes(search.toLowerCase())
-  );
+  const oldBooks = filtered.filter((b) => b.testament === "Old");
+  const newBooks = filtered.filter((b) => b.testament === "New");
 
   return (
-    <AppLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Campaigns</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Manage your data campaigns and connected tables.
+    <div className="min-h-screen bg-background">
+      <Header />
+      <main className="mx-auto max-w-6xl px-4 py-10">
+        <VerseOfTheDay />
+        <section className="mb-8 text-center">
+          <p className="text-sm font-medium uppercase tracking-wider text-primary">
+            {t.booksCount(books.length || 66)}
           </p>
-        </div>
+          <h1 className="mt-2 font-serif text-4xl font-semibold text-foreground sm:text-5xl">
+            {t.appName}
+          </h1>
+          <p className="mx-auto mt-3 max-w-xl text-muted-foreground">{t.tagline}</p>
+          <p className="mx-auto mt-1 max-w-xl text-sm text-muted-foreground">{t.chooseBook}</p>
+          <div className="mx-auto mt-6 flex max-w-xl flex-col gap-2 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t.searchPlaceholder}
+                aria-label={t.searchPlaceholder}
+                className="w-full rounded-full border border-border bg-card py-3 pl-11 pr-4 text-sm text-foreground shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            <Link
+              to="/search"
+              className="inline-flex items-center justify-center gap-1.5 rounded-full border border-border bg-card px-4 py-3 text-sm font-medium text-foreground transition hover:border-primary/40 hover:text-primary"
+            >
+              <TextSearch className="h-4 w-4" /> Search verses
+            </Link>
+          </div>
+        </section>
 
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search campaigns…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        {booksQ.isLoading ? (
+          <div className="flex items-center justify-center py-16 text-muted-foreground">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading books…
+          </div>
+        ) : booksQ.isError ? (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-center text-sm text-destructive">
+            Failed to load books. {(booksQ.error as Error)?.message}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16">
-            <Database className="mb-3 h-10 w-10 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">
-              {campaigns.length === 0 ? "No campaigns yet" : "No matching campaigns"}
-            </p>
-            {campaigns.length === 0 && (
-              <Link to="/campaigns/create" className="mt-3">
-                <Button size="sm" variant="outline">
-                  Create your first campaign
-                </Button>
-              </Link>
+          <p className="py-16 text-center text-muted-foreground">{t.noResults}</p>
+        ) : (
+          <div className="space-y-10">
+            {oldBooks.length > 0 && (
+              <TestamentSection title={t.oldTestament} books={oldBooks} lang={lang} />
+            )}
+            {newBooks.length > 0 && (
+              <TestamentSection title={t.newTestament} books={newBooks} lang={lang} />
             )}
           </div>
-        ) : (
-          <div className="overflow-hidden rounded-lg border border-border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead>Campaign Name</TableHead>
-                  <TableHead>Connected Table</TableHead>
-                  <TableHead className="text-right">Row Count</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((c) => (
-                  <TableRow key={c.id} className="group">
-                    <TableCell className="font-medium">{c.name}</TableCell>
-                    <TableCell>
-                      <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{c.table_name}</code>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {rowCounts[c.id] ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => navigate({ to: "/campaigns/$campaignId", params: { campaignId: c.id } })}
-                          title="View"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => navigate({ to: "/campaigns/$campaignId/edit", params: { campaignId: c.id } })}
-                          title="Edit"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setDeleteTarget(c)}
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
         )}
+      </main>
+    </div>
+  );
+}
+
+function TestamentSection({ title, books, lang }: { title: string; books: ApiBook[]; lang: string }) {
+  return (
+    <section>
+      <div className="mb-4 flex items-baseline justify-between border-b border-border pb-2">
+        <h2 className="font-serif text-2xl font-semibold text-foreground">{title}</h2>
+        <span className="text-sm text-muted-foreground">{books.length}</span>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {books.map((b, i) => (
+          <BookCard key={b.id} index={i} book={b} lang={lang} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function BookCard({ index, book, lang }: { index: number; book: ApiBook; lang: string }) {
+  const slug = bookSlug(book.name);
+  const localized = localizedBookName(book.name, lang);
+
+  return (
+    <Link
+      to="/book/$book"
+      params={{ book: slug }}
+      className="group flex flex-col rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:border-primary/40 hover:shadow-md"
+    >
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="text-xs font-semibold text-primary/70">#{index + 1}</div>
+          <h3 className="font-serif text-xl font-semibold text-card-foreground">{localized}</h3>
+          {localized !== book.name && (
+            <p className="text-xs text-muted-foreground">{book.name}</p>
+          )}
+        </div>
+        <span className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">
+          <BookOpen className="h-3 w-3" /> {book.chapters} {t_chapters_label(book.chapters)}
+        </span>
       </div>
 
-      <DeleteDialog
-        open={!!deleteTarget}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-        onConfirm={handleDelete}
-        campaignName={deleteTarget?.name ?? ""}
-      />
-    </AppLayout>
+      <p className="mt-3 text-xs text-muted-foreground">
+        {book.testament === "Old" ? "Old Testament" : "New Testament"}
+      </p>
+
+      <div className="mt-4 flex items-center justify-end gap-1 text-sm font-medium text-primary transition group-hover:gap-2">
+        Open <ArrowRight className="h-4 w-4" />
+      </div>
+    </Link>
   );
+}
+
+function t_chapters_label(n: number) {
+  return n === 1 ? "chapter" : "chapters";
 }
